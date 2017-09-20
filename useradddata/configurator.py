@@ -3,8 +3,13 @@ import json
 
 
 DEFAULT_CONFIG = {
-    "reports_dir": "/Users/vincentengler/Box Sync/Projects/" +
-    "BIOPROD Data for User Adds",
+    "directory": [
+        'Users',
+        'vincentengler',
+        'Box Sync',
+        'Projects',
+        'BIOPROD Data for User Adds'
+    ],
     "reports": {
         "locations": {
             "sub_dir": "All Locations",
@@ -59,9 +64,19 @@ def config_file_path():
 
 class Config():
     def __init__(self, **kwargs):
-        self.reports_dir = kwargs.get('reports_dir', '')
         self.reports = self.make_configinfos(kwargs.get('reports', None))
         self.results = self.make_configinfos(kwargs.get('results', None))
+        self.reports_dir = kwargs.get(
+            'reports_dir',
+            self.make_valid_reports_dir(kwargs.get('directory', [])))
+
+    def make_valid_reports_dir(self, directory):
+        build_path = os.path.join(*directory)
+        if not os.path.isdir(build_path):
+            build_path = input('Enter directory: ')
+            if not os.path.isdir(build_path):
+                raise RuntimeError("Invalid directory given")
+        return build_path
 
     def make_configinfos(self, given):
         if not isinstance(given, dict):
