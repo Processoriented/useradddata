@@ -513,14 +513,6 @@ class UserSpace(RecordSpace):
         self.matching_terms = terms
         super(UserSpace, self).__init__(
             parent, 'User', **kwargs)
-        chatterFields = [
-            'UserPermissionsChatterAnswersUser',
-            'UserPreferencesHideChatterOnboardingSplash',
-            'UserPreferencesHideSecondChatterOnboardingSplash',
-            'UserPreferencesHideCSNGetChatterMobileTask']
-        for field in chatterFields:
-            delattr(self, field)
-            self.fields = [x for x in self.fields if x != field]
 
     def get_name(self):
         fallback = 'unnamed user'
