@@ -169,7 +169,7 @@ class InsertAction(Action):
     def take_action(self):
         if self.name == 'fix':
             self.make_corrections()
-        url = '%s/services/data/v37.0/sobjects/%s/' % (
+        url = '%s/services/data/v40.0/sobjects/%s/' % (
             self.space.record.conn.auth['instance_url'], self.space.sobject)
         try:
             response = self.space.record.conn.req_post(
@@ -200,7 +200,7 @@ class UpdateAction(Action):
         payload = {k: v for k, v in payload.items() if k != 'Id'}
         if hasattr(self, 'IsActive'):
             payload['IsActive'] = 'true'
-        url = '%s/services/data/v37.0/sobjects/%s/%s' % (
+        url = '%s/services/data/v40.0/sobjects/%s/%s' % (
             self.space.record.conn.auth['instance_url'],
             self.space.sobject,
             self.sfid)
@@ -270,7 +270,7 @@ class RecordSpace():
         getattr(self, action_method, 'done_action')()
 
     def insert_action(self):
-        url = '%s/services/data/v37.0/sobjects/%s/' % (
+        url = '%s/services/data/v40.0/sobjects/%s/' % (
             self.record.conn.auth['instance_url'], self.sobject)
         response = self.record.conn.req_post(url, self.to_dict())
         self.sfid = response.get('id')
@@ -282,7 +282,7 @@ class RecordSpace():
         payload = {k: v for k, v in payload.items() if k != 'Id'}
         if hasattr(self, 'IsActive'):
             payload['IsActive'] = 'true'
-        url = '%s/services/data/v37.0/sobjects/%s/%s' % (
+        url = '%s/services/data/v40.0/sobjects/%s/%s' % (
             self.record.conn.auth['instance_url'], self.sobject, sfid)
         response = self.record.conn.req_patch(url, payload)
         if response.status_code < 300:
@@ -513,6 +513,14 @@ class UserSpace(RecordSpace):
         self.matching_terms = terms
         super(UserSpace, self).__init__(
             parent, 'User', **kwargs)
+        chatterFields = [
+            'UserPermissionsChatterAnswersUser',
+            'UserPreferencesHideChatterOnboardingSplash',
+            'UserPreferencesHideSecondChatterOnboardingSplash',
+            'UserPreferencesHideCSNGetChatterMobileTask']
+        for field in chatterFields:
+            delattr(self, field)
+            self.fields = [x for x in self.fields if x != field]
 
     def get_name(self):
         fallback = 'unnamed user'

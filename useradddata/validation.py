@@ -104,7 +104,7 @@ class Environmental_Spec():
 
     def refresh(self):
         conn = self.get_connection()
-        url = '%s/services/data/v37.0/sobjects/%s/describe' % (
+        url = '%s/services/data/v40.0/sobjects/%s/describe' % (
             conn.auth['instance_url'], self.rule.sobject)
         description = conn.req_get(url)
         fields = description.get('fields', [])
