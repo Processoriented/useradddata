@@ -70,8 +70,12 @@ class Config():
             'reports_dir',
             self.make_valid_reports_dir(kwargs.get('directory', [])))
 
-    def make_valid_reports_dir(self, directory):
-        build_path = os.path.join(*directory)
+    def make_valid_reports_dir(self, directory=[]):
+        build_path = ''
+        if len(directory) > 0:
+            build_path = os.path.join(directory.pop(0))
+        while len(directory) > 0:
+            build_path = os.path.join(build_path, directory.pop(0))
         if not os.path.isdir(build_path):
             build_path = input('Enter directory: ')
             if not os.path.isdir(build_path):
