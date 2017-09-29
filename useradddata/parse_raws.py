@@ -1,6 +1,32 @@
 import force as sf
 from .validation import Rule
 
+USER_DEFAULTS = {
+    'Business_P_L__c': 'LS Service',
+    'Bypass_Custom_Validation__c': False,
+    'DefaultGroupNotificationFrequency': 'N',
+    'DigestFrequency': 'D',
+    'EmailEncodingKey': 'ISO-8859-1',
+    'EmailPreferencesAutoBcc': True,
+    'EmailPreferencesAutoBccStayInTouch': False,
+    'EmailPreferencesStayInTouchReminder': True,
+    'ForecastEnabled': False,
+    'IsActive': True,
+    'ReceivesAdminInfoEmails': False,
+    'ReceivesInfoEmails': False,
+    'SVMXC__Is_Super_Dispatcher__c': False,
+    'SVMXC__ServiceMax_User__c': False,
+    'UserPermissionsSupportUser': True,
+    'UserPreferencesActivityRemindersPopup': True,
+    'UserPreferencesDisableLikeEmail': True,
+    'UserPreferencesEventRemindersCheckboxDefault': True,
+    'UserPreferencesHideS1BrowserUI': True,
+    'UserPreferencesHideSecondChatterOnboardingSplash': True,
+    'UserPreferencesSortFeedByComment': True,
+    'UserPreferencesTaskRemindersCheckboxDefault': True,
+    'UserRoleId': '00E80000001SQpuEAG'
+}
+
 
 class ParsedRawRecord():
     def __init__(self, given):
@@ -37,7 +63,7 @@ class Record():
             self.make_connection()
         except Exception as e:
             print('No connection for record:\n%s\n%s' % (
-                str(self.to_dict(), str(e))))
+                str(self.to_dict()), str(e)))
 
     def make_connection(self, env=None):
         if env is None:
@@ -513,14 +539,6 @@ class UserSpace(RecordSpace):
         self.matching_terms = terms
         super(UserSpace, self).__init__(
             parent, 'User', **kwargs)
-        chatterFields = [
-            'UserPermissionsChatterAnswersUser',
-            'UserPreferencesHideChatterOnboardingSplash',
-            'UserPreferencesHideSecondChatterOnboardingSplash',
-            'UserPreferencesHideCSNGetChatterMobileTask']
-        for field in chatterFields:
-            delattr(self, field)
-            self.fields = [x for x in self.fields if x != field]
 
     def get_name(self):
         fallback = 'unnamed user'
