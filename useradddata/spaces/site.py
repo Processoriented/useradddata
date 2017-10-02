@@ -1,4 +1,4 @@
-from ..main import import_json_dict, report_file_path
+from .. import main as util
 from .main import RecordSpace, error_if_none
 
 
@@ -51,7 +51,7 @@ class LocationSpace(RecordSpace):
             'Name': self._get_location_name()}
 
     def _get_match(self):
-        known = import_json_dict(report_file_path('locations'))
+        known = util.import_json_dict(util.report_file_path('locations'))
         matches = [
             x for x in known
             if x['Location_Number__c'] == self._get_location()]

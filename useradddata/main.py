@@ -1,7 +1,7 @@
 import os
 import json
 from .configurator import get_config
-from record import Record
+from .record import Record
 
 
 config = get_config()

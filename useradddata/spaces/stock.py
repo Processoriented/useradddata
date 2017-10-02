@@ -1,6 +1,6 @@
 import force as sf
 from .main import RecordSpace, is_int
-from ..main import import_json_dict, report_file_path
+from .. import main as util
 
 
 STOCK_DEFAULTS = {
@@ -18,7 +18,7 @@ def add_stock(record):
     subInv = getattr(record.ref, 'Oracle_SubInventory', None)
     if subInv is None:
         return
-    known = import_json_dict(report_file_path('prod_stock'))
+    known = util.import_json_dict(util.report_file_path('prod_stock'))
     record.stock = [
         ProductStockSpace(record, x) for x in known
         if x['Subinventory'] == subInv]
@@ -51,7 +51,7 @@ class ProductStockSpace(RecordSpace):
     def get_ser_stock(self):
         sers = list(filter(
             (lambda x: x.get('Key', 'not_a_key') == self.key),
-            import_json_dict(report_file_path('ser_stock'))))
+            util.import_json_dict(util.report_file_path('ser_stock'))))
         sers = list(filter(
             (lambda x: is_int(x.get('OnHand', None))), sers))
         for ser in sers:

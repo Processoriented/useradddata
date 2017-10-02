@@ -1,5 +1,5 @@
 import force as sf
-from spaces import (
+from .spaces import (
     RecordSpace,
     UserSpace,
     PermissionSetSpace,
