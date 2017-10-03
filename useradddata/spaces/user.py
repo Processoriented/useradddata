@@ -56,7 +56,7 @@ class UserSpace(RecordSpace):
         super(UserSpace, self).__init__(
             parent, 'User', **USER_DEFAULTS)
         self.fields_from_dict(
-            {x: getattr(self.parent.ref, x) for x in FIELDS_FROM_REF})
+            {x: getattr(self.record.ref, x) for x in FIELDS_FROM_REF})
         expected_terms = ['Username', 'SSO__c']
         self.matching_terms.extend(
             [x for x in expected_terms if getattr(self, x) is not None])

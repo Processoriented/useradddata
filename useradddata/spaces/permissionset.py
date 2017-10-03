@@ -1,5 +1,6 @@
 import force as sf
 from .main import RecordSpace
+from .actions import InsertAction, SkipAction
 
 
 class PermissionSetSpace(RecordSpace):
@@ -27,8 +28,8 @@ class PermissionSetSpace(RecordSpace):
             fields=['Id'],
             sobject=self.sobject,
             filters=filters).get_results()
-        if len(matches) > 0:
-            self.action = 'Done'
+        return SkipAction(self) if len(matches) > 0 else InsertAction(
+            self)
 
     def validate(self):
         self.valid = self.validate_permissionset() and self.validate_user()

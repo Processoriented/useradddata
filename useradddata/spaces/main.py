@@ -148,8 +148,8 @@ class RecordSpace():
         unfixables = {k: v for k, v in failures.items() if len(v[1]) == 0}
         for fix in fixables.keys():
             setattr(self, fix, fixables[fix][1][0])
+        unfixed = []
         if len(unfixables.keys()) != 0:
-            unfixed = []
             for field in unfixables.keys():
                 old_value = getattr(self, field)
                 print('"%s" invalid for %s.%s. (%s).' % (
