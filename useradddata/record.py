@@ -5,15 +5,27 @@ from .spaces import (
     PermissionSetSpace,
     LocationSpace,
     TechSpace,
-    add_stock)
+    add_stock,
+    matching_locations)
 
 
-def add_location_space(record):
-    try:
-        record.sites.append(LocationSpace(record))
-    except Exception as e:
-        pass
-    return
+def inspect_record(record):
+    print('-' * 40)
+    print('User Add for %s %s (%s):' % (
+        record.ref.FirstName,
+        record.ref.LastName,
+        record.ref.SSO__c))
+    if record.ref.Oracle_Location_Number in ['', None]:
+        print('No Oracle Location given.')
+    else:
+        print('Found %d Oracle recrds matching "%s".' % (
+            len(record.sites),
+            record.ref.Oracle_Location_Number))
+    tech = 0 if record.technician is None else 1
+    print('Technician records to add: %d' % tech)
+    print('Stock records to add: %d' % len(record.stock))
+    print('\n')
+    print('-' * 40)
 
 
 class Record():
@@ -22,14 +34,14 @@ class Record():
         self.ref = RecordSpace(self, None, **parsed_raw)
         self.user = UserSpace(self)
         self.permission_sets = self.set_permissionsets()
-        self.sites = []
+        self.sites = matching_locations(self)
         self.technician = None
         self.stock = []
         self.conn = self.make_connection()
-        add_location_space(self)
         if len(self.sites) > 0:
             self.technician = TechSpace(self)
             add_stock(self)
+        inspect_record(self)
 
     def set_permissionsets(self):
         psids = [

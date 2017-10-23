@@ -48,6 +48,7 @@ class UpdateAction(Action):
         name = 'update'
         url = '/'.join([space.record.conn.auth['instance_url'], sfid])
         desc = "Update %s: %s" % (space.sobject, url)
+        self.sfid = sfid
         super(UpdateAction, self).__init__(space, name, desc)
 
     def take_action(self):

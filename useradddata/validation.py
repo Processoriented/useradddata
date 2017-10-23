@@ -24,6 +24,63 @@ def get_saved_rules():
     return saved
 
 
+class ForceDef():
+    DEFAULTS = {
+        'soapType': None,
+        'restrictedPicklist': False,
+        'picklistValues': {},
+        'referenceTo': [],
+        'referenceTargetField': 'Id',
+        'tested_values': {},
+        'calculated': False,
+        'nillable': True,
+        'length': None
+    }
+
+    def __init__(self, **kwargs):
+        self.sobject = kwargs['sobject']
+        init_fields = [{'name': x} for x in kwargs['fields']]
+        init_fields = [{**x, **self.DEFAULTS} for x in init_fields]
+        envs = ['production', 'trainusers', 'uat', 'itest', 'integr']
+        self.defs = {x: [f for f in init_fields] for x in envs}
+        self.file_name = '%s.json' % self.sobject
+        self.file_path = os.path.join(get_rules_folder(), self.file_name)
+        self.get_defs()
+
+    def get_defs(self):        
+        if os.path.isfile(self.file_path):
+            with open(self.file_path, 'r') as f:
+                self.defs = json.loads(f)
+                return
+        for env in self.defs.keys():
+            conn = sf.Connection(env)
+            if 'error' in conn.auth.keys():
+                print("%s connection error: %s: %s" % (
+                    env, conn.auth['error'], conn.auth['error_description']))
+                continue
+            url = '%s/services/data/v40.0/sobjects/%s/describe' % (
+                conn.auth['instance_url'], self.sobject)
+            response = conn.req_get(url)
+            response_fields = response.get('fields', [])
+            defined = []
+            while len(self.defs[env]) > 0:
+                field = self.defs[env].pop(0)
+                mtch = [
+                    x for x in response_fields if x['name'] == field['name']]
+                if len(mtch) > 0:
+                    force_version = {
+                        k: v for k, v in mtch[0].items() if k in field.keys()}
+                    field = {**field, **force_version}
+                defined.append(field)
+            self.defs[env] = [x for x in defined]
+        with open(self.file_path, 'w') as f:
+            json.dump(self.defs, f, indent=3)
+        return
+
+    def check_values(self, env, values):
+        pass
+
+
 class Rule():
     def __init__(self, **kwargs):
         self.sobject = kwargs['sobject']

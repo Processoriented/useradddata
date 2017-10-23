@@ -11,6 +11,21 @@ LOCN_DEFAULTS = {
     'GEHC_LS_Tech_Owner_Reference__c': None}
 
 
+def matching_locations(record):
+    search_for = record.ref.Oracle_Location_Number
+    if search_for in ['', None]:
+        return []
+    search_fields = ['Location_Number__c', 'Oracle_Ship_to_Number__c']
+    known = util.import_json_dict(util.report_file_path('locations'))
+    search_fields.extend(
+        [k for k in known[0].keys() if k not in search_fields])
+    matches = []
+    while len(matches) == 0 and len(search_fields) > 0:
+        search_field = search_fields.pop(0)
+        matches.extend([x for x in known if x[search_field] == search_for])
+    return [LocationSpace(record, x) for x in matches]
+
+
 class LocationSpace(RecordSpace):
     def __init__(self, record, match=None):
         self.matching_terms = ['Name']
@@ -59,6 +74,8 @@ class LocationSpace(RecordSpace):
             matches.extend([
                 x for x in known
                 if x['Oracle_Ship_to_Number__c'] == self._get_location()])
+        if len(matches) == 0:
+            return None
         match = matches.pop(0)
         for alt in matches:
             self.make_alt_match(alt)

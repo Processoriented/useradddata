@@ -1,5 +1,5 @@
 import force as sf
-from ..validation import Rule
+from ..validation import Rule, ForceDef
 from .actions import InsertAction, UpdateAction, SkipAction
 
 
@@ -143,6 +143,7 @@ class RecordSpace():
         results = {
             x: rules[x].test_and_suggest(getattr(self, x))
             for x in self.fields if x not in self.valid_fields}
+        print(results)
         failures = {k: v for k, v in results.items() if not v[0]}
         fixables = {k: v for k, v in failures.items() if len(v[1]) > 0}
         unfixables = {k: v for k, v in failures.items() if len(v[1]) == 0}
