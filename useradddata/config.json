@@ -1,5 +1,5 @@
 {
-   "reports_dir": "/Users/vincentengler/Box Sync/Projects/BIOPROD Data for User Adds",
+   "reports_dir": "C:\\Users\\212673050\\Box Sync\\BIOPROD Data for User Adds",
    "reports": {
       "locations": {
          "sub_dir": "All Locations",
@@ -11,7 +11,7 @@
       },
       "ser_stock": {
          "sub_dir": "All Serialized Stock",
-         "file": "All Subinventory Locations_1052458.json"
+         "file": "All Subinventory Locations_1050720.json"
       },
       "user_adds": {
          "sub_dir": "Open User Adds",
