@@ -4,7 +4,7 @@ import json
 
 DEFAULT_CONFIG = {
     "reports_dir":
-        "/Users/vincentengler/Box Sync/Projects/BIOPROD Data for User Adds",
+        "C:\\Users\\212673050\\Box Sync\\BIOPROD Data for User Adds",
     "reports": {
         "locations": {
             "sub_dir": "All Locations",
