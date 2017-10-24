@@ -4,6 +4,7 @@ from .main import RecordSpace
 TECH_DEFAULTS = {
     'SVMXC__Salesforce_User__c': None,
     'SVMXC__Inventory_Location__c': None,
+    'SVMXC__Role__c': 'Service Engineer',
     'SVMXC__Active__c': True,
     'SVMXC__Street__c': None,
     'SVMXC__City__c': None,
