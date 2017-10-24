@@ -1,3 +1,4 @@
+import force as sf
 from .. import main as util
 from .main import RecordSpace, error_if_none
 
@@ -44,7 +45,20 @@ class LocationSpace(RecordSpace):
         suid = '' if suid is None else ' (%s)' % suid
         return "%s%s" % (self.Name, suid)
 
+    def lookup_biz_hrs(self):
+        field_name = 'SVMXC__Preferred_Business_Hours__c'
+        findings = sf.SOQL(
+            self.record.conn,
+            filters=["name = '%s'" % getattr(self, field_name)],
+            sobject='BusinessHours').get_results()
+        if len(findings) == 0:
+            self.valid_fields = [
+                x for x in self.valid_fields if x != field_name]
+            return
+        setattr(self, field_name, findings[0]['Id'])
+
     def validate(self):
+        self.lookup_biz_hrs()
         self.fields = [x for x in self.fields if x != 'SITE_USE_ID']
         super(LocationSpace, self).validate()
 

@@ -164,8 +164,13 @@ class RecordSpace():
                     rules[field].tested_values[old_value] = retest[1][0]
                     rules[field].rule.save()
                 else:
-                    unfixed.append(field)
+                    unfixed.append((field, new_value))
         self.valid = len(unfixed) == 0
+        for field in unfixed:
+            msg1 = "Could not validate %s.%s" % (self.sobject, field[0])
+            msg2 = "with original value %s or replacement value %s." % (
+                getattr(self, field[0]), field[1])
+            print("\n%s %s" % (msg1, msg2))
         return self.valid
 
     def fields_from_dict(self, given):
