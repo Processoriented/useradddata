@@ -50,8 +50,9 @@ class RecordSpace():
     def take_action(self):
         if self.action is None:
             self.action = self.determine_action()
-        if not self.validate():
-            return
+        self.validate()
+        if not self.valid:
+            return False
         return self.action.take_action()
 
     def determine_action(self):
