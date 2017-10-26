@@ -83,10 +83,19 @@ class Record():
     def process_sites(self):
         if len(self.sites) == 0:
             return
+        selection = 0
         if len(self.sites) > 1:
-            print("Choose a site.")
-            return
-        site = self.sites[0]
+            print("Choose a site:")
+            for idx, site in enumerate(self.sites):
+                print("%d.\t%s\t%s\t%s\t%s" % (
+                    idx,
+                    site.Oracle_Ship_to_Number__c,
+                    site.Oracle_Location_ID__c,
+                    site.Operating_Unit__c,
+                    site.Source_Organization__c))
+            selection = int(input())
+        site = self.sites[selection]
+        self.sites = [site]
         site.take_action()
         self.technician.set_locn_fields()
         for stock in self.stock:
