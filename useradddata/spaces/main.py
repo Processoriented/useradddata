@@ -1,5 +1,5 @@
 import force as sf
-from ..validation import Rule, ForceDef
+from ..validation import ForceDef
 from .actions import InsertAction, UpdateAction, SkipAction
 
 
@@ -140,37 +140,20 @@ class RecordSpace():
         return {k: v.environments[env] for k, v in rules.items()}
 
     def validate(self):
-        rules = self.get_rules()
-        results = {
-            x: rules[x].test_and_suggest(getattr(self, x))
-            for x in self.fields if x not in self.valid_fields}
-        failures = {k: v for k, v in results.items() if not v[0]}
-        fixables = {k: v for k, v in failures.items() if len(v[1]) > 0}
-        unfixables = {k: v for k, v in failures.items() if len(v[1]) == 0}
-        for fix in fixables.keys():
-            setattr(self, fix, fixables[fix][1][0])
-        unfixed = []
-        if len(unfixables.keys()) != 0:
-            for field in unfixables.keys():
-                old_value = getattr(self, field)
-                print('"%s" invalid for %s.%s. (%s).' % (
-                    str(getattr(self, field)),
-                    self.sobject,
-                    field,
-                    unfixables[field][2]))
-                new_value = input('Enter new value: ')
-                retest = rules[field].test_and_suggest(new_value)
-                if retest[0] or len(retest[1]) == 1:
-                    setattr(self, field, retest[1][0])
-                    rules[field].tested_values[old_value] = retest[1][0]
-                    rules[field].rule.save()
-                else:
-                    unfixed.append((field, new_value))
-        self.valid = len(unfixed) == 0
-        for field in unfixed:
-            msg1 = "Could not validate %s.%s" % (self.sobject, field[0])
-            msg2 = "with original value %s or replacement value %s." % (
-                getattr(self, field[0]), field[1])
+        to_check = {
+            x: getattr(self, x) for x in self.fields
+            if x not in self.valid_fields}
+        desc = ForceDef(
+            sobject=self.sobject,
+            fields=to_check.keys())
+        good, problems = desc.check_values(
+            self.record.ref.Environment,
+            to_check)
+        self.valid = len(problems.keys()) == 0
+        for field in problems.keys():
+            msg1 = "Could not validate '%s' for %s.%s" % (
+                problems[field][0], self.sobject, field)
+            msg2 = "because: %s." % '; '.join(problems[field][1])
             print("\n%s %s" % (msg1, msg2))
         return self.valid
 

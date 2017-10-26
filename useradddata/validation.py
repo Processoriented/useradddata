@@ -47,218 +47,252 @@ class ForceDef():
         self.file_path = os.path.join(get_rules_folder(), self.file_name)
         self.get_defs()
 
-    def get_defs(self):        
-        if os.path.isfile(self.file_path):
-            with open(self.file_path, 'r') as f:
-                self.defs = json.loads(f)
-                return
+    def get_defs(self):
+        if self.open_defs():
+            return
         for env in self.defs.keys():
-            conn = sf.Connection(env)
-            if 'error' in conn.auth.keys():
-                print("%s connection error: %s: %s" % (
-                    env, conn.auth['error'], conn.auth['error_description']))
-                continue
-            url = '%s/services/data/v40.0/sobjects/%s/describe' % (
-                conn.auth['instance_url'], self.sobject)
-            response = conn.req_get(url)
-            response_fields = response.get('fields', [])
-            defined = []
-            while len(self.defs[env]) > 0:
-                field = self.defs[env].pop(0)
-                mtch = [
-                    x for x in response_fields if x['name'] == field['name']]
-                if len(mtch) > 0:
-                    force_version = {
-                        k: v for k, v in mtch[0].items() if k in field.keys()}
-                    field = {**field, **force_version}
-                defined.append(field)
-            self.defs[env] = [x for x in defined]
+            self.pull_force_def(env)
         with open(self.file_path, 'w') as f:
             json.dump(self.defs, f, indent=3)
         return
 
-    def check_values(self, env, values):
-        pass
+    def open_defs(self):
+        if os.path.isfile(self.file_path):
+            with open(self.file_path, 'r') as f:
+                self.defs = json.loads(f)
+                return True
+        return False
 
+    def save_defs(self):
+        with open(self.file_path, 'w') as f:
+            json.dump(self.defs, f, indent=3)
+        return        
 
-class Rule():
-    def __init__(self, **kwargs):
-        self.sobject = kwargs['sobject']
-        self.field = kwargs['field']
-        self.load_from_saved()
-
-    def load_from_saved(self):
-        saved_rule = {}
-        saved = get_saved_rules()
-        rule_file = saved.get(self.sobject, {}).get(self.field, None)
-        if rule_file is not None:
-            with open(self.get_save_path(), 'r') as f:
-                try:
-                    saved_rule = json.load(f)
-                except Exception as e:
-                    print('load failed on %s.\n%s' % (self.field, str(e)))
-                    saved_rule = {}
-        saved_envs = saved_rule.get('environments', {'Production': {}})
-        setattr(
-            self,
-            'environments',
-            {k: Environmental_Spec(
-                self, k, **v) for k, v in saved_envs.items()})
-        self.save()
-
-    def get_save_path(self):
-        sobj_folder = os.path.join(get_rules_folder(), self.sobject)
-        if not os.path.isdir(sobj_folder):
-            os.mkdir(sobj_folder)
-        return os.path.join(sobj_folder, '%s.json' % self.field)
-
-    def to_dict(self):
-        return {
-            'sobject': self.sobject,
-            'field': self.field,
-            'environments': {
-                k: v.to_dict() for k, v in self.environments.items()}}
-
-    def save(self):
-        with open(self.get_save_path(), 'w') as f:
-            json.dump(self.to_dict(), f, indent=3)
-
-    def refresh_all(self):
-        for k, v in self.environments.items():
-            v.refresh()
-
-    def add_environment(self, environment):
-        self.environments[environment] = Environmental_Spec(
-            self, environment)
-
-
-class Environmental_Spec():
-    DEFAULTS = (
-        ('soapType', None),
-        ('picklist_labels', {}),
-        ('referenceTo', []),
-        ('referenceTargetField', 'Id'),
-        ('tested_values', {}),
-        ('calculated', False),
-        ('nillable', True),
-        ('length', None),
-        ('last_refresh', None))
-
-    def __init__(self, rule, environment, **kwargs):
-        self.rule = rule
-        self.environment = environment
-        for attr_ in self.DEFAULTS:
-            setattr(self, attr_[0], kwargs.get(attr_[0], attr_[1]))
-        if self.last_refresh is None:
-            self.refresh()
-
-    def to_dict(self):
-        return {x[0]: getattr(self, x[0], x[1]) for x in self.DEFAULTS}
-
-    def get_connection(self):
-        env = ''.join(self.environment.strip().split(' ')).lower()
-        return sf.Connection(env)
-
-    def refresh(self):
-        conn = self.get_connection()
+    def force_def_connection(self, env):
+        conn = sf.Connection(env)
+        if 'error' in conn.auth.keys():
+            print("%s connection error: %s: %s" % (
+                env, conn.auth['error'], conn.auth['error_description']))
+            return (None, None)
         url = '%s/services/data/v40.0/sobjects/%s/describe' % (
-            conn.auth['instance_url'], self.rule.sobject)
-        description = conn.req_get(url)
-        fields = description.get('fields', [])
-        field = [x for x in fields if x.get('name', '') == self.rule.field]
-        if len(field) == 0:
-            return
-        field = field[0]
-        for attr_ in self.DEFAULTS:
-            current = getattr(self, attr_[0], attr_[1])
-            setattr(self, attr_[0], field.get(attr_[0], current))
-        self.picklist_labels = {
-            x['label']: x['value'] for x in field['picklistValues']}
-        self.last_refresh = datetime.now().isoformat()
+            conn.auth['instance_url'], self.sobject)
+        return (conn, url)
 
-    def test_length(self, value):
-        if self.soapType not in ['xsd:anyType', 'xsd:string']:
-            return True
-        try:
-            if self.length < len(value):
-                return False
-        except Exception:
-            pass
+    def pull_force_def(self, env):
+        conn, url = self.force_def_connection(env)
+        if conn is None:
+            return
+        response = conn.req_get(url)
+        response_fields = response.get('fields', [])
+        defined = []
+        while len(self.defs[env]) > 0:
+            field = self.defs[env].pop(0)
+            mtch = [
+                x for x in response_fields if x['name'] == field['name']]
+            if len(mtch) > 0:
+                force_version = {
+                    k: v for k, v in mtch[0].items() if k in field.keys()}
+                field = {**field, **force_version}
+            defined.append(field)
+        self.defs[env] = [x for x in defined]
+        return
+
+    def check_values(self, env, to_check, first=True):
+        rules = {x['name']: x for x in self.defs[env]}
+        good = {}
+        fixable = {}
+        unfixable = {}
+        for field in to_check.keys():
+            if field not in rules.keys():
+                unfixable[field] = (to_check[field], ['Field not found'])
+                continue
+            val_type = rules[field]['soapType'].split(':')[-1]
+            val_args = {
+                'env': env,
+                'sobject': self.sobject,
+                'given': to_check[field],
+                'desc': rules[field]}
+            if val_type == 'ID':
+                validation = IdValidation(**val_args)
+            elif val_type == 'string':
+                validation = StringValidation(**val_args)
+            elif val_type == 'boolean':
+                validation = BooleanValidation(**val_args)
+            else:
+                validation = FieldValidation(**val_args)
+            if validation.valid:
+                good[field] = validation.given
+            elif first:
+                print('"%s" invalid for %s.%s. (%s).' % (
+                    validation.given),
+                    self.sobject,
+                    field,
+                    '; '.join(validation.problems))
+                fixable[field] = input('Enter new value:')
+            else:
+                unfixable[field] = (
+                    validation.given,
+                    validation.problems)
+            rules[field]['tested_values'] = validation.tested_values
+        self.defs[env] = [v for k, v in rules.items()]
+        self.save_defs()
+        if len(fixable.keys()) > 0:
+            second = self.check_values(env, fixable, False)
+            good = {**good, **second[0]}
+            unfixable = {**unfixable, **second[1]}
+        return (good, unfixable)
+
+
+class FieldValidation():
+    def __init__(self, **kwargs):
+        self.env = kwargs['env']
+        self.sobject = kwargs['sobject']
+        self.given = kwargs['given']
+        for k, v in kwargs['desc'].items():
+            setattr(self, k, v)
+        self.valid = False
+        self.problems = []
+        self.suggestions = []
+        self.validate()
+        self.auto_correct()
+
+    def auto_correct(self):
+        if self.valid:
+            return
+        if len(self.suggestions) == 1:
+            self.tested_values[self.given] = self.suggestions[0]
+            self.given = self.suggestions[0]
+            self.valid = True
+        return
+
+    def validate(self):
+        results = []
+        results.append(self.check_null())
+        results.append(self.check_calculated())
+        if False in results:
+            return
+        if self.tested_values.get(self.given, None) is not None:
+            self.given = self.tested_values[self.given]
+            self.valid = True
+            return
+        self.valid = self.local_validate()
+
+    def local_validate(self):
         return True
 
-    def match_picklist(self, value):
-        matches = (
-            [v for k, v in self.picklist_labels.items() if v == value],
-            [v for k, v in self.picklist_labels.items() if k == value])
-        match_lens = [len(x) > 0 for x in matches]
-        if True in match_lens:
-            correct = matches[match_lens.index(True)][0]
-            self.tested_values[value] = correct
-            self.rule.save()
-            return [correct]
-        return []
+    def check_null(self):
+        if not getattr(self, 'nillable', True):
+            if self.given is not None:
+                self.problems.append('Not nillable')
+                return False
+        return True
 
-    def get_soql(self, **kwargs):
+    def check_calculated(self):
+        if getattr(self, 'calculated', False):
+            self.problems.append('Calculated field')
+            return False
+        return True
+
+
+class StringValidation(FieldValidation):
+    def __init__(self, **kwargs):
+        super(StringValidation, self).__init__(**kwargs)
+
+    def local_validate(self):
+        limit = getattr(self, 'length', 1000)
+        if not isinstance(self.given, str):
+            try:
+                self.problems.append('Not a string.')
+                self.suggestions.append(str(self.given)[:limit])
+            except Exception as e:
+                self.problems.append(str(e))
+            return False
+        if len(self.given) > limit:
+            self.problems.append('String too long')
+            self.suggestions.append(self.given[:limit])
+            return False
+        return True
+
+    def picklist_validate(self):
+        picklist = getattr(self, 'picklistValues', [])
+        if len(picklist) == 0:
+            return True
+        if not getattr(self, 'restrictedPicklist', False):
+            return True
+        values = [x['value'] for x in picklist]
+        if self.given in values:
+            return True
+        self.suggestions.extend([
+            x['value'] for x in picklist if x['label'] == self.given])
+        self.problems.append('Not in picklist')
+        return False
+
+
+class BooleanValidation(FieldValidation):
+    def __init__(self, **kwargs):
+        super(StringValidation, self).__init__(**kwargs)
+
+    def local_validate(self):
+        if not isinstance(self.given, bool):
+            self.problems.append('Not a boolean')
+            return False
+        return True
+
+class IdValidation(FieldValidation):
+    def __init__(self, **kwargs):
+        super(StringValidation, self).__init__(**kwargs)
+        self.conn = sf.Connection(self.env)
+
+    def local_validate(self):
+        if not isinstance(self.given, str):
+            self.problems.append('Not a valid id')
+            return False
+        if len(self.given) not in [15, 18]:
+            self.problems.append('Not a valid id')
+            self.suggestions.extend(self.lookup_id())
+            return False
+        return self.idExists()
+
+    def match_field(self, sobject, field='name'):
+        rtn = []
+        filt = "%s='%s'" % (field, self.given)
         try:
-            return sf.SOQL(
-                self.get_connection(), **kwargs).get_results()
+            rtn.extend([
+                x['Id'] for x in sf.SOQL(
+                    self.conn,
+                    sobject=sobject,
+                    filters=[filt]).get_results()])
         except Exception as e:
-            return []
+            pass
+        return rtn
 
-    def get_sosl(self, **kwargs):
+    def search_given(self, sobject):
+        rtn = []
         try:
-            return sf.SOSL(
-                self.get_connection(), **kwargs).get_results()
+            rtn.extend([
+                x['Id'] for x in sf.SOSL(
+                    self.conn,
+                    sobject=sobject,
+                    terms=[self.given]).get_results()])
         except Exception as e:
-            return []
+            pass
+        return rtn
 
-    def match_reference(self, value):
+    def lookup_id(self):
+        matched_names = []
+        for ref in getattr(self, 'referenceTo', []):
+            matched_names.extend(self.match_field(ref))
+        if len(matched_names) > 0:
+            return matched_names
+        for ref in getattr(self, 'referenceTo', []):
+            matched_names.extend(self.search_given(ref))
+        return matched_names
+
+    def idExists(self):
         matches = []
-        target = self.referenceTargetField
-        target = 'Id' if target is None else target
-        params = {
-            'fields': [target],
-            'sobject': self.referenceTo[0],
-            'filters': "Id='%s'" % value}
-        matches.extend(self.get_soql(**params))
-        if len(matches) == 0:
-            params['filters'] = "Name='%s'" % value
-            matches.extend(self.get_soql(**params))
-        if len(matches) == 0:
-            sparams = {
-                'terms': [value],
-                'sobject': params['sobject'],
-                'returning_fields': params['fields']}
-            matches.extend(self.get_sosl(**sparams))
-        if len(matches) == 0:
-            return []
-        correct = matches[0].get(target)
-        self.tested_values[value] = correct
-        self.rule.save()
-        return [correct]
-
-    def test_and_suggest(self, value):
-        if self.calculated:
-            return (value is None, [None], 'Calculated field')
-        if value is None:
-            if self.nillable:
-                return (True, [None], '')
-            return (False, [], 'Cannot be None')
-        if value in self.tested_values.keys():
-            correct = self.tested_values[value]
-            return (value == correct, [correct], 'Use tested')
-        if len(self.picklist_labels.keys()) > 0:
-            correct = self.match_picklist(value)
-            return (value == correct, correct, 'Use PL value')
-        if len(self.referenceTo) > 0:
-            correct = self.match_reference(value)
-            return (value == correct, correct, 'Use Ref value')
-        if not self.test_length(value):
-            return (False, [value[:self.length]], 'Too Long')
-        if self.soapType == 'xsd:boolean':
-            return (
-                isinstance(value, bool), [bool(value)], 'boolean')
-        return (True, [value], '')
+        for ref in getattr(self, 'referenceTo', []):
+            matched_names.extend(self.match_field(ref, 'id'))
+        return len(matches) != 0
 
 
 if __name__ == '__main__':
