@@ -24,6 +24,10 @@ def get_saved_rules():
     return saved
 
 
+def format_env(given):
+    return ''.join(given.split(' ')).lower()
+
+
 class ForceDef():
     DEFAULTS = {
         'soapType': None,
@@ -59,7 +63,7 @@ class ForceDef():
     def open_defs(self):
         if os.path.isfile(self.file_path):
             with open(self.file_path, 'r') as f:
-                self.defs = json.loads(f)
+                self.defs = json.load(f)
                 return True
         return False
 
@@ -98,6 +102,7 @@ class ForceDef():
         return
 
     def check_values(self, env, to_check, first=True):
+        env = format_env(env)
         rules = {x['name']: x for x in self.defs[env]}
         good = {}
         fixable = {}
@@ -109,6 +114,7 @@ class ForceDef():
             val_type = rules[field]['soapType'].split(':')[-1]
             val_args = {
                 'env': env,
+                'conn': sf.Connection(env),
                 'sobject': self.sobject,
                 'given': to_check[field],
                 'desc': rules[field]}
@@ -124,10 +130,10 @@ class ForceDef():
                 good[field] = validation.given
             elif first:
                 print('"%s" invalid for %s.%s. (%s).' % (
-                    validation.given),
+                    validation.given,
                     self.sobject,
                     field,
-                    '; '.join(validation.problems))
+                    '; '.join(validation.problems)))
                 fixable[field] = input('Enter new value:')
             else:
                 unfixable[field] = (
@@ -146,6 +152,7 @@ class ForceDef():
 class FieldValidation():
     def __init__(self, **kwargs):
         self.env = kwargs['env']
+        self.conn = kwargs['conn']
         self.sobject = kwargs['sobject']
         self.given = kwargs['given']
         for k, v in kwargs['desc'].items():
@@ -182,7 +189,7 @@ class FieldValidation():
 
     def check_null(self):
         if not getattr(self, 'nillable', True):
-            if self.given is not None:
+            if self.given is None:
                 self.problems.append('Not nillable')
                 return False
         return True
@@ -230,7 +237,7 @@ class StringValidation(FieldValidation):
 
 class BooleanValidation(FieldValidation):
     def __init__(self, **kwargs):
-        super(StringValidation, self).__init__(**kwargs)
+        super(BooleanValidation, self).__init__(**kwargs)
 
     def local_validate(self):
         if not isinstance(self.given, bool):
@@ -238,9 +245,10 @@ class BooleanValidation(FieldValidation):
             return False
         return True
 
+
 class IdValidation(FieldValidation):
     def __init__(self, **kwargs):
-        super(StringValidation, self).__init__(**kwargs)
+        super(IdValidation, self).__init__(**kwargs)
         self.conn = sf.Connection(self.env)
 
     def local_validate(self):
@@ -257,11 +265,12 @@ class IdValidation(FieldValidation):
         rtn = []
         filt = "%s='%s'" % (field, self.given)
         try:
+            query = sf.SOQL(
+                self.conn,
+                sobject=sobject,
+                filters=[filt])
             rtn.extend([
-                x['Id'] for x in sf.SOQL(
-                    self.conn,
-                    sobject=sobject,
-                    filters=[filt]).get_results()])
+                x['Id'] for x in query.get_results()])
         except Exception as e:
             pass
         return rtn
@@ -270,28 +279,38 @@ class IdValidation(FieldValidation):
         rtn = []
         try:
             rtn.extend([
-                x['Id'] for x in sf.SOSL(
+                x[sobject[1]] for x in sf.SOSL(
                     self.conn,
-                    sobject=sobject,
+                    sobject=sobject[0],
                     terms=[self.given]).get_results()])
         except Exception as e:
             pass
         return rtn
 
+    def reference_obj_field(self):
+        objs = getattr(self, 'referenceTo', [])
+        field = getattr(self, 'referenceTargetField', None)
+        field = 'Id' if field is None else field
+        if len(objs) == 0:
+            objs.append(self.sobject)
+        return [(x, field) for x in objs]
+
     def lookup_id(self):
         matched_names = []
-        for ref in getattr(self, 'referenceTo', []):
+        ref_obj_field = self.reference_obj_field()
+        for ref in ref_obj_field:
             matched_names.extend(self.match_field(ref))
         if len(matched_names) > 0:
             return matched_names
-        for ref in getattr(self, 'referenceTo', []):
+        for ref in ref_obj_field:
             matched_names.extend(self.search_given(ref))
         return matched_names
 
     def idExists(self):
         matches = []
-        for ref in getattr(self, 'referenceTo', []):
-            matched_names.extend(self.match_field(ref, 'id'))
+        ref_obj_field = self.reference_obj_field()
+        for ref in ref_obj_field:
+            matches.extend(self.match_field(ref[0], ref[1]))
         return len(matches) != 0
 
 

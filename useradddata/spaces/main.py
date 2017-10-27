@@ -103,6 +103,7 @@ class RecordSpace():
             return
         self.fields.append("Id")
         setattr(self, 'Id', match['Id'])
+        self.valid_fields.append('Id')
         self.action = 'Update'
 
     def get_matching_sfids(self):
@@ -145,10 +146,12 @@ class RecordSpace():
             if x not in self.valid_fields}
         desc = ForceDef(
             sobject=self.sobject,
-            fields=to_check.keys())
+            fields=[x for x in to_check.keys()])
         good, problems = desc.check_values(
             self.record.ref.Environment,
             to_check)
+        for key, val in good.items():
+            setattr(self, key, val)
         self.valid = len(problems.keys()) == 0
         for field in problems.keys():
             msg1 = "Could not validate '%s' for %s.%s" % (
